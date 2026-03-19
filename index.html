@@ -448,22 +448,39 @@
       <div class="field">
         <label>Initial Price</label>
         <div class="input-group">
-          <input type="number" id="initial_price" placeholder="0.00" min="0" step="0.01" oninput="calculate()">
+          <input type="number" inputmode="decimal" id="initial_price" placeholder="0.00" min="0" step="0.01" oninput="calculate()">
         </div>
       </div>
     </div>
+    <div class="two-col">
+      <div class="field">
+        <label>Discount (%)</label>
+        <div class="input-group">
+          <input type="number" inputmode="decimal" id="discount_pct" placeholder="0" min="0" max="100" step="0.1" oninput="calculate()">
+          <div class="suf">%</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Discount (flat)</label>
+        <div class="input-group">
+          <div class="pre" id="disc_pre">USD</div>
+          <input type="number" inputmode="decimal" id="discount_flat" placeholder="0" min="0" step="0.01" oninput="calculate()">
+        </div>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:-6px;margin-bottom:10px;">Applied before tax &amp; import duty</p>
     <div class="field">
       <label>Exchange Rate (1 <span id="cur_label">USD</span> = Rp)</label>
       <div class="input-group">
         <div class="pre">Rp</div>
-        <input type="number" id="exchange_rate" placeholder="" min="1" oninput="calculate()">
+        <input type="number" inputmode="decimal" id="exchange_rate" placeholder="" min="1" oninput="calculate()">
       </div>
       <p class="hint" id="rate_hint">Default: 1 USD = Rp 16,000</p>
     </div>
     <div class="field">
       <label>Tax / Import Duty (%)</label>
       <div class="input-group">
-        <input type="number" id="tax" placeholder="0" min="0" max="100" step="0.1" oninput="calculate()">
+        <input type="number" inputmode="decimal" id="tax" placeholder="0" min="0" max="100" step="0.1" oninput="calculate()">
         <div class="suf">%</div>
       </div>
     </div>
@@ -484,7 +501,7 @@
         <label>Shipping Cost (<span id="ship_cur_label">USD</span>)</label>
         <div class="input-group">
           <div class="pre" id="ship_pre">USD</div>
-          <input type="number" id="shipping_cost" placeholder="0.00" min="0" step="0.01" oninput="calculate()">
+          <input type="number" inputmode="decimal" id="shipping_cost" placeholder="0.00" min="0" step="0.01" oninput="calculate()">
         </div>
         <p class="hint">Uses the same exchange rate as the product price</p>
       </div>
@@ -497,7 +514,7 @@
     <div class="field">
       <label>Weight</label>
       <div class="input-group">
-        <input type="number" id="weight" placeholder="0.0" min="0" step="0.1" oninput="calculate()">
+        <input type="number" inputmode="decimal" id="weight" placeholder="0.0" min="0" step="0.1" oninput="calculate()">
         <div class="suf" id="weight_suf">kg</div>
       </div>
     </div>
@@ -510,23 +527,22 @@
       </div>
     </div>
     <div class="field">
-      <label>Baggage Fee / <span id="fee_unit_label">kg</span> (<span id="bag_cur_label">USD</span>)</label>
+      <label>Baggage Fee / kg (<span id="bag_cur_label">USD</span>)</label>
       <div class="input-group">
         <div class="pre" id="bag_pre">USD</div>
-        <input type="number" id="baggage_fee" placeholder="25" min="0" oninput="calculate()">
+        <input type="number" inputmode="decimal" id="baggage_fee" placeholder="25" min="0" oninput="calculate()">
       </div>
-      <p class="hint">Uses the same exchange rate as the product price</p>
+      <p class="hint">Rate is always per kg — lb &amp; gram inputs are auto-converted</p>
     </div>
   </div>
 
-  <!-- 4. Markup -->
   <div class="section">
     <div class="section-title">4 · Markup</div>
     <div class="two-col">
       <div class="field">
         <label>Markup (%)</label>
         <div class="input-group">
-          <input type="number" id="markup_pct" placeholder="20" min="0" oninput="calculate()">
+          <input type="number" inputmode="decimal" id="markup_pct" placeholder="20" min="0" oninput="calculate()">
           <div class="suf">%</div>
         </div>
       </div>
@@ -534,7 +550,7 @@
         <label>+ Flat (Rp)</label>
         <div class="input-group">
           <div class="pre">Rp</div>
-          <input type="number" id="markup_flat" placeholder="0" min="0" oninput="calculate()">
+          <input type="number" inputmode="decimal" id="markup_flat" placeholder="0" min="0" oninput="calculate()">
         </div>
       </div>
     </div>
@@ -548,6 +564,14 @@
         <div class="b-row">
           <span class="b-key">Initial Price</span>
           <span class="b-val zero" id="r_initial">—</span>
+        </div>
+        <div class="b-row">
+          <span class="b-key">Discount</span>
+          <span class="b-val zero" id="r_discount">—</span>
+        </div>
+        <div class="b-row">
+          <span class="b-key">Price after Discount</span>
+          <span class="b-val zero" id="r_after_discount">—</span>
         </div>
         <div class="b-row">
           <span class="b-key">Tax</span>
@@ -617,7 +641,6 @@
     document.querySelectorAll('.unit-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     el('weight_suf').textContent = unit;
-    el('fee_unit_label').textContent = unit;
     calculate();
   }
 
@@ -628,6 +651,7 @@
     el('ship_cur_label').textContent = cur;
     el('bag_pre').textContent = cur;
     el('bag_cur_label').textContent = cur;
+    el('disc_pre').textContent = cur;
     const def = defaultRates[cur] || 1;
     el('rate_hint').textContent = cur === 'IDR'
       ? 'No exchange rate needed for IDR'
@@ -650,23 +674,31 @@
     const cur = el('price_cur').value;
     const rate = cur === 'IDR' ? 1 : (n('exchange_rate') || defaultRates[cur] || 1);
 
-    const initialIDR  = n('initial_price') * rate;
-    const taxIDR      = initialIDR * (n('tax') / 100);
+    const initialIDR    = n('initial_price') * rate;
+    const discPct       = n('discount_pct');
+    const discFlat      = n('discount_flat') * rate;
+    const discountIDR   = (initialIDR * (discPct / 100)) + discFlat;
+    const afterDiscount = Math.max(0, initialIDR - discountIDR);
+    const taxIDR        = afterDiscount * (n('tax') / 100);
     const shippingIDR = el('has_shipping').checked ? n('shipping_cost') * rate : 0;
     const weightKg    = toKg(n('weight'));
     const baggageIDR  = n('baggage_fee') * rate * weightKg;
-    const subtotal    = initialIDR + taxIDR + shippingIDR + baggageIDR;
+    const subtotal    = afterDiscount + taxIDR + shippingIDR + baggageIDR;
     const markupIDR   = (subtotal * (n('markup_pct') / 100)) + n('markup_flat');
     const total       = subtotal + markupIDR;
     lastTotal = total;
 
     setVal('r_initial', initialIDR > 0 ? rp(initialIDR) : '—', initialIDR === 0);
+    setVal('r_discount', discountIDR > 0
+      ? '- ' + rp(discountIDR) + (discPct > 0 ? ' (' + discPct + '%)' : '')
+      : '—', discountIDR === 0);
+    setVal('r_after_discount', discountIDR > 0 ? rp(afterDiscount) : '—', discountIDR === 0);
     setVal('r_tax', taxIDR > 0 ? rp(taxIDR) + ' (' + n('tax') + '%)' : '—', taxIDR === 0);
     setVal('r_shipping',
       el('has_shipping').checked ? (shippingIDR > 0 ? rp(shippingIDR) : 'Rp 0') : '—',
       !el('has_shipping').checked || shippingIDR === 0);
     setVal('r_baggage', baggageIDR > 0
-      ? rp(baggageIDR) + ' (' + n('weight') + ' ' + weightUnit + ')'
+      ? rp(baggageIDR) + ' (' + n('weight') + ' ' + weightUnit + (weightUnit !== 'kg' ? ' = ' + weightKg.toFixed(3) + ' kg' : '') + ')'
       : '—', baggageIDR === 0);
     setVal('r_markup', markupIDR > 0 ? rp(markupIDR) : '—', markupIDR === 0);
 
@@ -692,11 +724,11 @@
   }
 
   function resetAll() {
-    ['initial_price','exchange_rate','tax','shipping_cost','weight','baggage_fee','markup_pct','markup_flat']
+    ['initial_price','discount_pct','discount_flat','exchange_rate','tax','shipping_cost','weight','baggage_fee','markup_pct','markup_flat']
       .forEach(id => el(id).value = '');
     el('has_shipping').checked = false;
     el('shipping_wrap').style.display = 'none';
-    ['r_initial','r_tax','r_shipping','r_baggage','r_markup'].forEach(id => setVal(id, '—', true));
+    ['r_initial','r_discount','r_after_discount','r_tax','r_shipping','r_baggage','r_markup'].forEach(id => setVal(id, '—', true));
     el('r_total').textContent = 'Rp —';
     el('r_sell').textContent  = 'Rp —';
     el('sell_note').textContent = 'Includes all costs';
